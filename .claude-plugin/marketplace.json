@@ -1,0 +1,21 @@
+{
+  "name": "veto-protocol",
+  "owner": {
+    "name": "Investech Global LLC",
+    "email": "tomer@veto-ai.com",
+    "url": "https://veto-ai.com"
+  },
+  "plugins": [
+    {
+      "name": "veto",
+      "description": "The boundary between Claude Code and money — policy + risk engine + on-chain hard-stop.",
+      "version": "0.1.0",
+      "source": {
+        "source": "github",
+        "repo": "veto-protocol/claude-plugin"
+      },
+      "homepage": "https://veto-ai.com",
+      "tags": ["payments", "agents", "policy", "x402", "crypto", "stablecoins"]
+    }
+  ]
+}

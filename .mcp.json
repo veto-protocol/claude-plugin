@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "veto": {
+      "command": "python3",
+      "args": ["-m", "veto_cli.mcp_server"],
+      "env": {
+        "VETO_BASE_URL": "${VETO_BASE_URL:-https://veto-ai.com}"
+      },
+      "disabled": false
+    }
+  }
+}

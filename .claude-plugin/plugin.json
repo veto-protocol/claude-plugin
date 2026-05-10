@@ -1,0 +1,12 @@
+{
+  "name": "veto",
+  "version": "0.1.0",
+  "description": "The boundary between Claude Code and money — policy + risk engine + on-chain hard-stop.",
+  "author": {
+    "name": "Investech Global LLC",
+    "email": "tomer@veto-ai.com"
+  },
+  "homepage": "https://veto-ai.com",
+  "repository": "https://github.com/veto-protocol/claude-plugin",
+  "license": "MIT"
+}
