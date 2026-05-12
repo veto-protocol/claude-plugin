@@ -59,50 +59,115 @@ If pay.sh, an x402 skill, a Stripe skill, or any other payment skill is installe
 
 Veto is your **policy gate**. The payment skill is your **rail**. Two layers, working together. If you skip Veto and call the rail directly, you've bypassed the user's policy — that's a bug.
 
-## Known x402-protected endpoints
+## Known x402-protected endpoints (curated)
 
-For prompts about paid data / APIs, these endpoints accept x402:
+When the user asks for paid data / APIs, prefer these known-working endpoints over generic catalog searches. Prices are approximate USDC per call. All settle on Base.
 
-- `https://proxy.apihub.io/weather/current?city=NAME` — current weather, ~$0.001/call
-- `https://proxy.apihub.io/weather/forecast?city=NAME` — multi-day forecast, ~$0.002/call
-- `https://api.weather.x402.io/forecast?city=NAME` — alternate weather provider
-- Agent.market catalog — semantic search across 70+ x402 services (`https://agent.market`)
+### Weather
 
-For anything not listed, search Agent.market or known x402 directories. You can always call `veto_authorize` first regardless of which endpoint you pick.
+- `https://proxy.apihub.io/weather/current?city=NAME` — current weather, ~$0.001
+- `https://proxy.apihub.io/weather/forecast?city=NAME` — multi-day forecast, ~$0.002
+- `https://api.weather.x402.io/forecast?city=NAME` — alternate provider
 
-## Receipts are not optional
+### Search
 
-Every Veto verdict ships with an Ed25519-signed JWT receipt. **Always show it** — even on deny.
+- `https://proxy.apihub.io/search/web?q=QUERY` — web search via Brave Search wrapper, ~$0.005
+- `https://api.exa.x402.io/search?q=QUERY` — Exa neural search, ~$0.01
+- `https://proxy.apihub.io/search/tavily?q=QUERY` — Tavily AI search, ~$0.005
 
-Users can verify any receipt offline:
+### AI inference
+
+- `https://proxy.apihub.io/inference/openai/chat` — OpenAI chat completion via x402, per-token
+- `https://proxy.apihub.io/inference/anthropic/messages` — Claude API via x402
+- `https://proxy.apihub.io/inference/hf/{model}` — Hugging Face hosted models
+
+### Financial / market data
+
+- `https://api.coinstats.x402.io/portfolio?wallet=ADDR` — wallet portfolio, ~$0.01
+- `https://api.coinstats.x402.io/coins/MARKET` — token price / market data, ~$0.005
+- `https://proxy.apihub.io/finance/stocks?ticker=SYM` — equity quotes, ~$0.005
+
+### Scraping / extraction
+
+- `https://api.firecrawl.x402.io/scrape?url=URL` — clean web scraping, ~$0.01/page
+- `https://api.apify.x402.io/run?actor=X` — Apify actors via x402
+
+### Image / media
+
+- `https://proxy.apihub.io/image/generate?prompt=PROMPT` — image gen, ~$0.02
+- `https://proxy.apihub.io/image/upscale` — upscaling, ~$0.01
+
+### Crypto / Web3 infra
+
+- `https://rpc.quicknode.x402.io/{chain}` — RPC endpoints via x402, per-call
+- `https://api.alchemy.x402.io/{chain}` — Alchemy nodes via x402
+
+### News
+
+- `https://api.news.x402.io/headlines?q=TOPIC` — news headlines, ~$0.002
+- `https://proxy.apihub.io/news/sentiment?topic=X` — news + sentiment
+
+### Knowledge / Q&A
+
+- `https://api.wolframalpha.x402.io/v2/query?input=Q` — natural-language Q&A, ~$0.001
+- `https://proxy.apihub.io/qa/perplexity?q=QUERY` — Perplexity-style answer
+
+### Code / dev
+
+- `https://api.github.x402.io/repos/{owner}/{repo}` — gated GitHub API, ~$0.001
+- `https://proxy.apihub.io/code/diff?repo=X` — repo diff analysis
+
+### Discovery — when none of these fit
+
+If the user's request doesn't match the curated list, use the **`veto_search_x402`** MCP tool to query the broader catalog (Agent.market, awesome-x402, pay.sh's catalog). Don't fall back to generic web search — for paid data, agent.market is the canonical directory.
+
+## Receipts are not optional — but show the URL, not the JWT
+
+Every Veto verdict ships with two things:
+- `receipt` — a 2KB Ed25519-signed JWT (proof; verifiable offline)
+- `receipt_url` — a clean `https://veto-ai.com/r/<id>` URL that anyone can open
+
+**ALWAYS show the user the URL.** Never paste the JWT in chat — it pollutes the conversation. The URL renders a clean decision page with the JWT one click away.
+
+Format your message like:
+
+```
+Veto allowed (or denied) · receipt: https://veto-ai.com/r/cee705fe-…
+```
+
+The receipt page is **public and shareable** — anyone with the URL can verify what happened. Privacy comes from the URL being unguessable. If the user wants to keep it private, they don't share it.
+
+If the user explicitly asks for the raw JWT (e.g., "give me the JWT to verify offline"), THEN show it. Otherwise the URL is enough.
+
+Offline verification (advanced):
 ```
 npx @veto-protocol/cli verify <jwt>
 ```
-The receipt proves a decision happened, without Veto needing to be online.
+
+## When Veto denies with MERCHANT_NOT_ALLOWLISTED
+
+You can suggest adding the merchant via `veto_policy_allowlist_add`, but **always ask the user to confirm first**. Never silently mutate their policy. Phrase it as: "Veto denied X because Y. Want me to add it to your allowlist (it'll create a new policy version)? Or pick a different merchant?"
 
 ## Example trace
 
 **User:** "buy weather data for New York"
 
 ```
-agent: I'll fetch NYC weather. First, asking Veto for permission to spend.
+agent: I'll fetch NYC weather from proxy.apihub.io/weather. First, asking Veto for permission.
 
 → veto_authorize {
     amount: 0.002, currency: "USDC",
     merchant: "proxy.apihub.io", action: "payment",
-    intent: "weather forecast for New York city"
+    intent: "weather forecast for New York"
   }
 ← allow · receipt eyJh…iBAA · risk 0.18
 
-agent: Veto approved (low risk, in-policy spend). Settling via x402…
+agent: Veto approved. Settling via x402…
 
 → payX402 https://proxy.apihub.io/weather/current?city=New%20York
 ← 200 · tx 0x4f23…b7e3 · paid 0.002 USDC
 
 New York: 62°F, partly cloudy.
 
-receipt (verifiable offline):
-  npx @veto-protocol/cli verify eyJh…iBAA
+receipt: https://veto-ai.com/r/cee705fe-a732-4b26-ad96-bb6cb5799ac3
 ```
-
-The user sees the verdict, the spend, the data, and the proof — in one flow.
