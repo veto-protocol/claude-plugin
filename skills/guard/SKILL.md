@@ -144,9 +144,41 @@ Offline verification (advanced):
 npx @veto-protocol/cli verify <jwt>
 ```
 
-## When Veto denies with MERCHANT_NOT_ALLOWLISTED
+## When Veto denies — the moment to teach
 
-You can suggest adding the merchant via `veto_policy_allowlist_add`, but **always ask the user to confirm first**. Never silently mutate their policy. Phrase it as: "Veto denied X because Y. Want me to add it to your allowlist (it'll create a new policy version)? Or pick a different merchant?"
+A deny isn't a wall — it's the user's first guided tour of their own policy. Most users have never opened it. They've just been told an agent is going to spend their money, and now Veto blocked something. They're paying attention. Don't waste it.
+
+**Do this in order, every time:**
+
+1. **Show the verdict + the receipt URL** (`https://veto-ai.com/r/<uuid>`). One line is fine.
+2. **Translate the `reason_codes`** into plain English. The user doesn't know what `OVER_PER_MERCHANT_CAP` means — they know "this site was capped at $0.10 and we tried to spend $0.30."
+3. **Call `veto_policy_show`** so you can describe what the policy currently allows.
+4. **Offer 1–3 concrete next moves**, each tied to the exact MCP tool you'd call. Be specific — show the field, the old value, the new value. Examples:
+   - "Add `api.exa.x402.io` to your merchant allowlist → `veto_policy_allowlist_add`"
+   - "Raise per-tx cap from `$0.10` to `$1.00` → `veto_policy_set_caps`"
+   - "Drop the `finance`-category restriction → `veto_policy_categories_set`"
+   - "Loosen the 9–5 time window → `veto_policy_set_time_windows`"
+   - "Cap this merchant at $0.50 instead → `veto_policy_per_merchant_cap_set`"
+5. **Wait for explicit confirmation** before any policy mutation. After the change, retry `veto_authorize` so the user sees their new policy in action.
+
+This sequence is non-negotiable. Skipping the teach step means the user just sees "denied" and walks away — and the rich, customizable surface Veto offers is invisible to them.
+
+### Reason codes → English (cheat-sheet)
+
+- `MERCHANT_NOT_ALLOWLISTED` → "This merchant isn't on your allowlist. Add it or pick another." (`veto_policy_allowlist_add`)
+- `OVER_TX_LIMIT` → "Amount > your per-tx cap." (`veto_policy_set_caps`)
+- `OVER_DAILY_LIMIT` / `OVER_MONTHLY_LIMIT` → "You've already spent your daily / monthly budget." (`veto_policy_set_caps`)
+- `OVER_PER_MERCHANT_CAP` → "Amount > the cap you set just for this merchant." (`veto_policy_per_merchant_cap_set`)
+- `TIME_WINDOW_VIOLATION` → "Outside your allowed time windows." (`veto_policy_set_time_windows`)
+- `RATE_LIMITED_HOURLY` / `RATE_LIMITED_DAILY` → "Too many transactions in the window." (`veto_policy_set_rate_limits`)
+- `CATEGORY_BLOCKED` → "Merchant's category is on your blocklist." (`veto_policy_categories_set`)
+- `CATEGORY_NOT_ALLOWED` → "Merchant's category isn't on your allowlist." (`veto_policy_categories_set`)
+- `INTENT_KEYWORD_FORBIDDEN` → "Intent text mentioned a forbidden word." (`veto_policy_intent_keywords_set`)
+- `INTENT_KEYWORD_MISSING` → "Intent didn't include any required keywords." (`veto_policy_intent_keywords_set`)
+- `KNOWN_FRAUD_MERCHANT` / `TYPOSQUATTING` → "This looks like phishing. Don't override unless you really mean it."
+- `KILL_SWITCH` → "Client kill switch is on; nothing will pass until it's flipped off."
+
+Never silently mutate the user's policy. They own it.
 
 ## Example trace
 

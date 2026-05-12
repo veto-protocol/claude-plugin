@@ -23,9 +23,13 @@ Call `veto__policy_show` (no arguments needed for the default agent, or pass
 Render the YAML with sensible formatting. Highlight:
 - `max_per_transaction`
 - `daily_limit`, `monthly_limit`
-- `merchant_allowlist` (if non-empty)
-- `merchant_blocklist`
 - `require_human_approval_above` (the escalate threshold)
+- `merchant_allowlist` / `merchant_blocklist` (if non-empty)
+- `per_merchant_caps` — dollar cap per individual merchant
+- `categories_allowlist` / `categories_blocklist` — semantic categories (weather, search, inference, finance, …)
+- `time_windows` — allowed spend hours/days
+- `rate_limit_per_hour`, `rate_limit_per_day` — count-based rate caps
+- `intent_keywords_required` / `intent_keywords_forbidden` — words that must (not) appear in intent text
 
 ### Dry-run a spend
 
@@ -46,10 +50,19 @@ auditing a planned campaign before kickoff.
 
 ### Edit policy
 
-Editing policy is intentionally **out of scope** for this skill — policy
-changes flow through `veto policy push <yaml>` from the CLI, which validates,
-versions, and content-hashes them. Tell the user to run that command and
-exit the skill.
+Two paths, depending on context:
+
+- **From inside a Claude Code session** — you have MCP tools that each push a
+  new policy version: `veto_policy_set_caps`, `veto_policy_set_time_windows`,
+  `veto_policy_set_rate_limits`, `veto_policy_categories_set`,
+  `veto_policy_per_merchant_cap_set`, `veto_policy_intent_keywords_set`,
+  `veto_policy_allowlist_add`. Each one fetches the active policy, merges your
+  patch, and pushes a new version (the old one stays for audit).
+  **Always confirm with the user before calling any of these.**
+- **From the shell** — `veto policy push <yaml>` for full-file edits;
+  validates, versions, and content-hashes.
+
+Either way, policies are immutable — every change is a new version.
 
 ## Reminders
 
